@@ -1,0 +1,259 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #090d16;
+  --card: #ffffff;
+  --card-foreground: #090d16;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --accent: #475569;
+  --accent-foreground: #ffffff;
+  --warning: #d97706;
+  --destructive: #dc2626;
+  --border: rgba(0, 0, 0, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-warning: var(--warning);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* ==========================================
+   🏴‍☠️ Premium Monochrome (Black & White) Overrides
+   ========================================== */
+
+/* Force system and browser elements to light mode */
+* {
+  color-scheme: light !important;
+}
+
+/* Typography Overrides */
+.text-white {
+  color: #000000 !important;
+}
+
+.text-slate-400, 
+.text-slate-500, 
+.text-slate-300, 
+.text-white\/70, 
+.text-slate-400\/80,
+.text-slate-400\/90 {
+  color: #475569 !important;
+}
+
+.text-slate-600, 
+.text-white\/50,
+.text-slate-500\/70 {
+  color: #64748b !important;
+}
+
+.text-cyan-400, 
+.text-cyan-500, 
+.text-teal-400,
+.text-emerald-400 {
+  color: #000000 !important;
+}
+
+.text-slate-950 {
+  color: #ffffff !important;
+}
+
+/* Background Overrides */
+.bg-slate-950, 
+.bg-slate-900, 
+.bg-slate-900\/60, 
+.bg-black, 
+.bg-slate-950\/80, 
+.bg-slate-900\/80 {
+  background-color: #ffffff !important;
+}
+
+.bg-slate-900\/50, 
+.bg-white\/5, 
+.bg-slate-800, 
+.bg-slate-800\/50, 
+.bg-slate-900\/30, 
+.bg-slate-950\/40, 
+.bg-white\/10 {
+  background-color: #f8fafc !important;
+}
+
+.bg-cyan-500, 
+.bg-teal-500, 
+.bg-cyan-600 {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.from-cyan-500, 
+.to-teal-500,
+.from-cyan-600,
+.to-teal-600 {
+  background-image: none !important;
+  background-color: #000000 !important;
+}
+
+.bg-cyan-500\/10, 
+.bg-emerald-500\/10, 
+.bg-teal-500\/10 {
+  background-color: #f1f5f9 !important;
+}
+
+/* Border Overrides */
+.border-white\/10, 
+.border-white\/5, 
+.border-slate-800, 
+.border-slate-700, 
+.border-white\/20, 
+.border-slate-800\/60,
+.border-white\/30 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Glassmorphism Styles (re-tuned for premium white background) */
+.glass {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+.glass-premium {
+  background: #ffffff !important;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04) !important;
+}
+
+.glass-accent {
+  background: rgba(0, 0, 0, 0.02) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+.glass-destructive {
+  background: rgba(239, 68, 68, 0.05) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(239, 68, 68, 0.2) !important;
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.05) !important;
+}
+
+/* Forms, inputs and select boxes */
+input, select, textarea {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #000000 !important;
+  outline: none;
+}
+
+/* Selection and hover highlights */
+::selection {
+  background-color: #000000;
+  color: #ffffff;
+}
+
+.hover\:bg-white\/5:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+.hover\:text-cyan-400:hover {
+  color: #000000 !important;
+}
+
+/* Glow Effects */
+.glow-cyan {
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
+}
+
+.glow-rose {
+  box-shadow: 0 0 35px rgba(239, 68, 68, 0.15);
+}
+
+/* Radar Scan Animations */
+@keyframes scan {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-scan {
+  animation: scan 8s linear infinite;
+}
+
+@keyframes ping-slow {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.animate-ping-slow {
+  animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Map override to fit custom theme */
+.leaflet-container {
+  background: #ffffff !important;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.leaflet-tile-pane {
+  filter: none !important;
+}

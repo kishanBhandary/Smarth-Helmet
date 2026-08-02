@@ -1,0 +1,398 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// User role enum
+enum Role {
+  USER
+  ADMIN
+}
+
+// Helmet status enum
+enum HelmetStatus {
+  ACTIVE
+  INACTIVE
+  CHARGING
+  MAINTENANCE
+}
+
+// Bluetooth device type enum
+enum DeviceType {
+  PHONE
+  HELMET
+  HEADSET
+  SENSOR
+  OTHER
+}
+
+// Ride status enum
+enum RideStatus {
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+// Sensor type enum
+enum SensorType {
+  ACCELEROMETER
+  GYROSCOPE
+  GPS
+  IMU
+  BLIND_SPOT
+  HEART_RATE
+}
+
+// Sensor status enum
+enum SensorStatus {
+  OK
+  ERROR
+  OFFLINE
+}
+
+// Notification type enum
+enum NotificationType {
+  CRASH
+  BATTERY
+  SYSTEM
+  BLUETOOTH
+  ALERT
+}
+
+// Crash severity enum
+enum CrashSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// Vehicle detection direction
+enum DetectionDirection {
+  REAR
+  LEFT
+  RIGHT
+}
+
+// Threat level
+enum ThreatLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// LED mode for helmet lights
+enum LedMode {
+  SOLID
+  FLASHING
+  PULSE
+  OFF
+}
+
+// Log status
+enum LogStatus {
+  CONNECTED
+  DISCONNECTED
+  FAILED
+}
+
+// ----------------------------------------
+// NextAuth Models
+// ----------------------------------------
+
+model User {
+  id                String             @id @default(uuid()) @db.Uuid
+  name              String?
+  email             String             @unique
+  emailVerified     DateTime?
+  image             String?
+  password          String?            // Nullable for OAuth users
+  role              Role               @default(USER)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  // NextAuth Relations
+  accounts          Account[]
+  sessions          Session[]
+
+  // Application Relations
+  helmets           Helmet[]
+  rides             Ride[]
+  emergencyContacts EmergencyContact[]
+  notifications     Notification[]
+  settings          Settings?
+
+  @@index([email])
+}
+
+model Account {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @db.Uuid
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?   @db.Text
+  access_token       String?   @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?   @db.Text
+  session_state      String?
+
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ----------------------------------------
+// Application Models
+// ----------------------------------------
+
+model Helmet {
+  id              String        @id @default(uuid()) @db.Uuid
+  name            String
+  serialNumber    String        @unique
+  status          HelmetStatus  @default(INACTIVE)
+  batteryLevel    Int           @default(100)
+  firmwareVersion String        @default("1.0.0")
+  lastSync        DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  userId          String?       @db.Uuid
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  bluetoothDevices BluetoothDevice[]
+  rides           Ride[]
+  sensors         Sensor[]
+  crashEvents     CrashEvent[]
+  bluetoothLogs   BluetoothLog[]
+  batteryLogs     BatteryLog[]
+
+  @@index([userId])
+  @@index([serialNumber])
+}
+
+model BluetoothDevice {
+  id           String     @id @default(uuid()) @db.Uuid
+  name         String
+  macAddress   String     @unique
+  type         DeviceType @default(HELMET)
+  paired       Boolean    @default(false)
+  connected    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relations
+  helmetId     String?    @db.Uuid
+  helmet       Helmet?    @relation(fields: [helmetId], references: [id], onDelete: SetNull)
+  bluetoothLogs BluetoothLog[]
+
+  @@index([helmetId])
+  @@index([macAddress])
+}
+
+model Ride {
+  id                String             @id @default(uuid()) @db.Uuid
+  title             String?
+  startTime         DateTime           @default(now())
+  endTime           DateTime?
+  distance          Float              @default(0.0) // In kilometers
+  duration          Int                @default(0)   // In seconds
+  avgSpeed          Float              @default(0.0) // In km/h
+  maxSpeed          Float              @default(0.0) // In km/h
+  status            RideStatus         @default(ONGOING)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  // Relations
+  userId            String             @db.Uuid
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  helmetId          String?            @db.Uuid
+  helmet            Helmet?            @relation(fields: [helmetId], references: [id], onDelete: SetNull)
+  locations         RideLocation[]
+  crashEvents       CrashEvent[]
+  vehicleDetections VehicleDetection[]
+
+  @@index([userId])
+  @@index([helmetId])
+  @@index([startTime])
+}
+
+model RideLocation {
+  id        String   @id @default(uuid()) @db.Uuid
+  latitude  Float
+  longitude Float
+  speed     Float?   // speed at this point
+  altitude  Float?   // altitude at this point
+  timestamp DateTime @default(now())
+
+  // Relations
+  rideId    String   @db.Uuid
+  ride      Ride     @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([rideId])
+  @@index([timestamp])
+}
+
+model Sensor {
+  id        String       @id @default(uuid()) @db.Uuid
+  type      SensorType
+  name      String
+  status    SensorStatus @default(OK)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  // Relations
+  helmetId  String       @db.Uuid
+  helmet    Helmet       @relation(fields: [helmetId], references: [id], onDelete: Cascade)
+
+  @@index([helmetId])
+}
+
+model EmergencyContact {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  phone        String
+  relationship String
+  email        String?
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  userId       String   @db.Uuid
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  title     String
+  message   String
+  type      NotificationType @default(SYSTEM)
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  // Relations
+  userId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model CrashEvent {
+  id         String        @id @default(uuid()) @db.Uuid
+  latitude   Float
+  longitude  Float
+  severity   CrashSeverity @default(HIGH)
+  timestamp  DateTime      @default(now())
+  resolved   Boolean       @default(false)
+  resolvedAt DateTime?
+  createdAt  DateTime      @default(now())
+
+  // Relations
+  rideId     String?       @db.Uuid
+  ride       Ride?         @relation(fields: [rideId], references: [id], onDelete: SetNull)
+  helmetId   String        @db.Uuid
+  helmet     Helmet        @relation(fields: [helmetId], references: [id], onDelete: Cascade)
+
+  @@index([rideId])
+  @@index([helmetId])
+  @@index([timestamp])
+}
+
+model VehicleDetection {
+  id            String             @id @default(uuid()) @db.Uuid
+  distance      Float              // in meters
+  direction     DetectionDirection @default(REAR)
+  relativeSpeed Float?             // relative speed in km/h
+  threatLevel   ThreatLevel        @default(LOW)
+  timestamp     DateTime           @default(now())
+
+  // Relations
+  rideId        String             @db.Uuid
+  ride          Ride               @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([rideId])
+  @@index([timestamp])
+}
+
+model Settings {
+  id                 String   @id @default(uuid()) @db.Uuid
+  fallDetection      Boolean  @default(true)
+  blindSpotAlerts    Boolean  @default(true)
+  autoEmergencyCall  Boolean  @default(false)
+  emergencyDelay     Int      @default(30) // in seconds
+  ledMode            LedMode  @default(SOLID)
+  audioVolume        Int      @default(80) // volume percentage
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  userId             String   @unique @db.Uuid
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model BluetoothLog {
+  id        String    @id @default(uuid()) @db.Uuid
+  event     String
+  status    LogStatus @default(CONNECTED)
+  timestamp DateTime  @default(now())
+  details   String?
+
+  // Relations
+  helmetId  String?   @db.Uuid
+  helmet    Helmet?   @relation(fields: [helmetId], references: [id], onDelete: SetNull)
+  deviceId  String?   @db.Uuid
+  device    BluetoothDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([helmetId])
+  @@index([deviceId])
+  @@index([timestamp])
+}
+
+model BatteryLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  batteryLevel Int
+  voltage      Float?   // in Volts
+  charging     Boolean  @default(false)
+  timestamp    DateTime @default(now())
+
+  // Relations
+  helmetId     String   @db.Uuid
+  helmet       Helmet   @relation(fields: [helmetId], references: [id], onDelete: Cascade)
+
+  @@index([helmetId])
+  @@index([timestamp])
+}
