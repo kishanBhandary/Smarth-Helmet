@@ -1,26 +1,94 @@
-import { NextRequest } from "next/server";
-import { registerUserSchema } from "@/lib/validations";
-import { UserService } from "@/services/user";
-import { successResponse, errorResponse } from "@/lib/api-response";
+import { NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
+import { z } from "zod";
 
-export async function POST(req: NextRequest) {
+const registerSchema = z.object({
+  companyName: z.string().min(2),
+  email: z.string().email(),
+  phone: z.string().min(10),
+  password: z.string().min(6),
+});
+
+export async function POST(req: Request) {
   try {
     const body = await req.json();
-    
-    // Validate request body
-    const validation = registerUserSchema.safeParse(body);
-    if (!validation.success) {
-      return errorResponse("Validation error", 400, validation.error.format());
+    const result = registerSchema.safeParse(body);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: "Invalid data provided", details: result.error.errors },
+        { status: 400 }
+      );
     }
 
-    const { email, password, name } = validation.data;
-    const user = await UserService.createUser({ email, password, name });
+    const { companyName, email, phone, password } = result.data;
 
-    // Exclude password in response
-    const { password: _, ...userWithoutPassword } = user;
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
 
-    return successResponse(userWithoutPassword, 201);
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "A user with this email already exists" },
+        { status: 409 }
+      );
+    }
+
+    // Check if company already exists
+    const existingCompany = await prisma.company.findUnique({
+      where: { officialEmail: email },
+    });
+
+    if (existingCompany) {
+      return NextResponse.json(
+        { error: "A company with this official email already exists" },
+        { status: 409 }
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create Company and Admin User in a transaction
+    await prisma.$transaction(async (tx) => {
+      const newCompany = await tx.company.create({
+        data: {
+          name: companyName,
+          officialEmail: email,
+          phone,
+        },
+      });
+
+      await tx.user.create({
+        data: {
+          email,
+          name: "Admin User", // Placeholder or from form if we had it
+          password: hashedPassword,
+          role: "COMPANY_ADMIN",
+          companyId: newCompany.id,
+          permissions: [
+            "VIEW_DASHBOARD",
+            "UPLOAD_DATASET",
+            "VIEW_DATASETS",
+            "VIEW_RIDERS",
+            "VIEW_HELMETS",
+            "VIEW_TRIPS",
+            "VIEW_INCIDENTS",
+            "VIEW_ANALYTICS",
+            "VIEW_REPORTS",
+            "MANAGE_EMPLOYEES",
+          ],
+        },
+      });
+    });
+
+    return NextResponse.json({ success: true }, { status: 201 });
   } catch (error: any) {
-    return errorResponse(error.message || "An unexpected error occurred", 400);
+    console.error("Registration error:", error);
+    return NextResponse.json(
+      { error: "An unexpected error occurred" },
+      { status: 500 }
+    );
   }
 }

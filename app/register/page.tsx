@@ -1,228 +1,311 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { signIn } from "next-auth/react";
-import { HardHat, Key, Mail, User, AlertTriangle, Loader2 } from "lucide-react";
-
-const registerSchema = z
-  .object({
-    name: z.string().min(2, "Name must be at least 2 characters"),
-    email: z.string().email("Please enter a valid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
-    confirmPassword: z.string().min(6, "Confirm password is required"),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  });
-
-type RegisterFormValues = z.infer<typeof registerSchema>;
+import Link from "next/link";
+import Image from "next/image";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<RegisterFormValues>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
+  
+  const [formData, setFormData] = useState({
+    companyName: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const onSubmit = async (data: RegisterFormValues) => {
-    setError(null);
-    setLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
-      // 1. Create the user through our API
-      const response = await fetch("/api/auth/register", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.name,
-          email: data.email,
-          password: data.password,
-        }),
+        body: JSON.stringify(formData),
       });
 
-      const resData = await response.json();
+      const data = await res.json();
 
-      if (!response.ok || !resData.success) {
-        setError(resData.error || "Failed to create account. Email might be in use.");
-        setLoading(false);
-        return;
+      if (!res.ok) {
+        throw new Error(data.error || "Registration failed");
       }
 
-      // 2. Auto Sign-In using NextAuth credentials
-      const signInRes = await signIn("credentials", {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      });
-
-      if (signInRes?.error) {
-        setError("Account created, but automatic sign-in failed. Please log in manually.");
-        setLoading(false);
-      } else {
-        router.push("/dashboard");
-        router.refresh();
-      }
+      router.push("/login?registered=true");
     } catch (err: any) {
-      setError("An unexpected error occurred. Please try again.");
-      setLoading(false);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-slate-950 px-4 py-12 overflow-hidden">
-      {/* Background Neon Glows */}
-      <div className="absolute top-[-20%] left-[-20%] w-[60%] h-[60%] rounded-full bg-cyan-500/10 blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-20%] w-[60%] h-[60%] rounded-full bg-emerald-500/10 blur-[130px] pointer-events-none" />
+    <div className="flex min-h-screen items-center justify-center bg-[#F5F7FA] p-4 sm:p-8">
+      
+      {/* ANIMATED BORDER WRAPPER */}
+      <div 
+        className="relative overflow-hidden rounded-[22px]"
+        style={{
+          width: "100%",
+          maxWidth: "1200px",
+          minHeight: "680px",
+          boxShadow: "0 20px 60px rgba(15, 23, 42, 0.08)",
+          padding: "1px" // This acts as the 1px border
+        }}
+      >
+        {/* Rotating gradient layer */}
+        <div 
+          className="absolute left-[50%] top-[50%] h-[200%] w-[200%] animate-border-spin pointer-events-none"
+          style={{
+            background: "conic-gradient(from 0deg, #DDE3EA 0deg, #DDE3EA 270deg, #5EEAD4 340deg, #0F766E 360deg)"
+          }}
+        />
 
-      <div className="relative w-full max-w-md">
-        {/* Back Link */}
-        <Link
-          href="/"
-          className="absolute -top-12 left-0 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400 hover:text-cyan-400 transition-colors"
-        >
-          &larr; Back to home
-        </Link>
+        {/* AUTHENTICATION CONTAINER (INNER) */}
+        <div className="relative flex flex-col lg:flex-row w-full h-full bg-[#FFFFFF] rounded-[21px] p-[12px] z-10">
+          
+          {/* LEFT CONTENT (approx 44%) */}
+          <div className="flex flex-col items-center justify-center w-full lg:w-[44%] px-6 py-12 lg:px-12">
+            
+            <div className="w-full max-w-[420px]">
+              
+              {/* Brand removed */}
 
-        {/* Card */}
-        <div className="glass-premium rounded-2xl p-8 border border-white/10 shadow-2xl">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-cyan-400 mb-4">
-              <HardHat className="w-6 h-6" />
+              {/* Header */}
+              <div className="mb-8">
+                <h1 className="text-[32px] font-[700] text-[#111827] leading-[1.2]" style={{ letterSpacing: "-0.03em" }}>
+                  Create your company account
+                </h1>
+                <div className="mt-3 text-[#64748B] leading-[1.6]">
+                  <p className="text-[14px]">Set up your company's AI SmartData workspace.</p>
+                </div>
+              </div>
+
+              {/* Form */}
+              <form className="space-y-4" onSubmit={handleSubmit}>
+                {error && (
+                   <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-[14px] font-medium border border-red-200">
+                    {error}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label htmlFor="companyName" className="block text-[13px] font-[500] text-[#111827]">
+                    Company name
+                  </label>
+                  <input
+                    id="companyName"
+                    name="companyName"
+                    type="text"
+                    required
+                    className="block w-full h-[48px] px-[14px] text-[14px] text-[#111827] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[8px] outline-none transition-all placeholder:text-[#94A3B8]"
+                    style={{ boxShadow: "none" }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "#0F766E";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,118,110,0.10)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "#CBD5E1";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                    placeholder="Enter company name"
+                    value={formData.companyName}
+                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="email" className="block text-[13px] font-[500] text-[#111827]">
+                    Official company email
+                  </label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    className="block w-full h-[48px] px-[14px] text-[14px] text-[#111827] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[8px] outline-none transition-all placeholder:text-[#94A3B8]"
+                    style={{ boxShadow: "none" }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "#0F766E";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,118,110,0.10)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "#CBD5E1";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                    placeholder="company@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label htmlFor="phone" className="block text-[13px] font-[500] text-[#111827]">
+                    Phone number
+                  </label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    required
+                    className="block w-full h-[48px] px-[14px] text-[14px] text-[#111827] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[8px] outline-none transition-all placeholder:text-[#94A3B8]"
+                    style={{ boxShadow: "none" }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "#0F766E";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,118,110,0.10)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "#CBD5E1";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                    placeholder="Enter phone number"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="password" className="block text-[13px] font-[500] text-[#111827]">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        className="block w-full h-[48px] px-[14px] pr-10 text-[14px] text-[#111827] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[8px] outline-none transition-all placeholder:text-[#94A3B8]"
+                        style={{ boxShadow: "none" }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = "#0F766E";
+                          e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,118,110,0.10)";
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = "#CBD5E1";
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                        placeholder="Create a password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="confirmPassword" className="block text-[13px] font-[500] text-[#111827]">
+                      Confirm password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type={showPassword ? "text" : "password"}
+                        required
+                        className="block w-full h-[48px] px-[14px] pr-10 text-[14px] text-[#111827] bg-[#FFFFFF] border border-[#CBD5E1] rounded-[8px] outline-none transition-all placeholder:text-[#94A3B8]"
+                        style={{ boxShadow: "none" }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = "#0F766E";
+                          e.currentTarget.style.boxShadow = "0 0 0 3px rgba(15,118,110,0.10)";
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = "#CBD5E1";
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                        placeholder="Confirm your password"
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-0 pr-[14px] flex items-center text-[#94A3B8] hover:text-[#64748B] transition-colors"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center h-[48px] rounded-[8px] text-[14px] font-[600] text-[#FFFFFF] bg-[#172033] hover:bg-[#0F172A] disabled:opacity-70 transition-colors"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Create company account"
+                    )}
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-4 text-center">
+                <p className="text-[12px] text-[#94A3B8]">
+                  By creating an account, you agree to our Terms and Privacy Policy.
+                </p>
+              </div>
+
+              <div className="mt-8 text-[14px] text-[#64748B]">
+                Already have an account?{" "}
+                <Link href="/login" className="text-[#0F766E] hover:underline transition-all">
+                  Sign in
+                </Link>
+              </div>
+              
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Create Account</h1>
-            <p className="text-sm text-slate-400 mt-2">
-              Get started with your Smart Helmet
-            </p>
           </div>
 
-          {error && (
-            <div className="flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm px-4 py-3 rounded-lg mb-6 animate-pulse">
-              <AlertTriangle className="w-5 h-5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {/* Name */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Full Name
-              </label>
-              <div className="relative">
-                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="text"
-                  placeholder="John Doe"
-                  className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                  {...register("name")}
-                />
+          {/* RIGHT VISUAL PANEL (approx 56%) */}
+          <div className="hidden lg:block lg:w-[56%] h-full">
+            <div className="relative w-full h-full lg:min-h-[650px] rounded-[16px] overflow-hidden bg-slate-900">
+              <Image
+                src="/bg.jpeg"
+                alt="AI Smart Helmet Data Analytics"
+                fill
+                sizes="(max-width: 1024px) 100vw, 56vw"
+                className="object-cover"
+                priority
+              />
+              
+              {/* Optional Information Overlay */}
+              <div className="absolute bottom-6 left-6 right-6">
+                <div 
+                  className="p-5 rounded-[12px] max-w-sm"
+                  style={{
+                    background: "rgba(255, 255, 255, 0.90)",
+                    backdropFilter: "blur(12px)"
+                  }}
+                >
+                  <h3 className="text-[13px] font-[700] tracking-wider text-[#172033] mb-1">
+                    AI-POWERED RIDER SAFETY
+                  </h3>
+                  <p className="text-[15px] font-medium text-[#475569] leading-snug">
+                    Transform helmet data into actionable safety insights.
+                  </p>
+                </div>
               </div>
-              {errors.name && (
-                <p className="text-xs text-rose-400 mt-1">{errors.name.message}</p>
-              )}
             </div>
-
-            {/* Email */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="email"
-                  placeholder="name@example.com"
-                  className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                  {...register("email")}
-                />
-              </div>
-              {errors.email && (
-                <p className="text-xs text-rose-400 mt-1">{errors.email.message}</p>
-              )}
-            </div>
-
-            {/* Password */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Password
-              </label>
-              <div className="relative">
-                <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                  {...register("password")}
-                />
-              </div>
-              {errors.password && (
-                <p className="text-xs text-rose-400 mt-1">{errors.password.message}</p>
-              )}
-            </div>
-
-            {/* Confirm Password */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full bg-slate-900/50 border border-white/10 rounded-lg py-2.5 pl-10 pr-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                  {...register("confirmPassword")}
-                />
-              </div>
-              {errors.confirmPassword && (
-                <p className="text-xs text-rose-400 mt-1">{errors.confirmPassword.message}</p>
-              )}
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-cyan-500 to-teal-500 text-slate-950 font-bold py-2.5 rounded-lg text-sm hover:shadow-lg hover:shadow-cyan-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 mt-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating Secure Account...
-                </>
-              ) : (
-                "Create Account"
-              )}
-            </button>
-          </form>
-
-          {/* Sign In Link */}
-          <div className="text-center mt-8 text-sm text-slate-400">
-            Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-cyan-400 hover:underline">
-              Log in
-            </Link>
           </div>
+
         </div>
       </div>
     </div>

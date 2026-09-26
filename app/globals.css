@@ -35,6 +35,26 @@ body {
   overflow-x: hidden;
 }
 
+@keyframes border-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.animate-border-spin {
+  animation: border-spin 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-border-spin {
+    animation: none;
+    background: #DDE3EA;
+  }
+}
+
 /* ==========================================
    🏴‍☠️ Premium Monochrome (Black & White) Overrides
    ========================================== */
