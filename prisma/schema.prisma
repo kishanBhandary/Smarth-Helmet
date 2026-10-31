@@ -59,6 +59,7 @@ model Company {
   helmetDataRecords HelmetDataRecord[]
   incidents       Incident[]
   predictions     Prediction[]
+  predictionRuns  PredictionRun[]
   reports         Report[]
 }
 
@@ -156,6 +157,8 @@ model Dataset {
   companyId       String
   company         Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   records         HelmetDataRecord[]
+  predictions     Prediction[]
+  predictionRuns  PredictionRun[]
 
   @@index([companyId])
 }
@@ -196,6 +199,7 @@ model Helmet {
   trips        Trip[]
   records      HelmetDataRecord[]
   incidents    Incident[]
+  predictions  Prediction[]
 
   @@unique([companyId, helmetId])
   @@index([companyId])
@@ -222,6 +226,7 @@ model Trip {
 
   records      HelmetDataRecord[]
   incidents    Incident[]
+  predictions  Prediction[]
 
   @@unique([companyId, tripId])
   @@index([companyId])
@@ -267,6 +272,8 @@ model HelmetDataRecord {
 
   tripId         String
   trip           Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  predictions    Prediction[]
 
   @@index([companyId])
   @@index([datasetId])
@@ -319,25 +326,76 @@ model Incident {
 }
 
 model Prediction {
-  id                 String   @id @default(cuid())
-  accidentPrediction Boolean?
-  severityPrediction Severity?
-  riskScore          Float?
-  confidence         Float?
-  modelVersion       String?
-  createdAt          DateTime @default(now())
+  id                  String    @id @default(cuid())
+  accidentPrediction  Boolean?
+  severityPrediction  Severity?
 
-  companyId          String
-  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  predictedAccident   String?   // "Yes" | "No"
+  accidentProbability Float?   // e.g. 78.25
+  predictedSeverity   String?   // "None" | "Low" | "Medium" | "High" | "Critical"
+  sensorFeatures      Json?     // Original features: { Speed, Acceleration, Braking, Sharp_Turn, Tilt_Angle, Weather, Road_Condition }
 
-  incidentId         String?  @unique
-  incident           Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  riskScore           Float?
+  confidence          Float?
+  modelVersion        String?   @default("v1.0")
+  createdAt           DateTime  @default(now())
 
-  riderId            String?
-  rider              Rider?   @relation(fields: [riderId], references: [id], onDelete: Cascade)
+  companyId           String
+  company             Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  datasetId           String?
+  dataset             Dataset?  @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+
+  riderId             String?
+  rider               Rider?    @relation(fields: [riderId], references: [id], onDelete: SetNull)
+
+  helmetId            String?
+  helmet              Helmet?   @relation(fields: [helmetId], references: [id], onDelete: SetNull)
+
+  tripId              String?
+  trip                Trip?     @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  recordId            String?
+  record              HelmetDataRecord? @relation(fields: [recordId], references: [id], onDelete: SetNull)
+
+  incidentId          String?   @unique
+  incident            Incident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+
+  predictionRunId     String?
+  predictionRun       PredictionRun? @relation(fields: [predictionRunId], references: [id], onDelete: SetNull)
 
   @@index([companyId])
+  @@index([datasetId])
   @@index([riderId])
+  @@index([helmetId])
+  @@index([tripId])
+  @@index([recordId])
+  @@index([predictionRunId])
+  @@index([createdAt])
+}
+
+model PredictionRun {
+  id                   String        @id @default(cuid())
+  status               String        @default("COMPLETED")
+  totalRecords         Int           @default(0)
+  predictedAccidents   Int           @default(0)
+  predictedNoAccidents Int           @default(0)
+  modelVersion         String?       @default("v1.0")
+  errorMessage         String?       @db.Text
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  companyId            String
+  company              Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  datasetId            String?
+  dataset              Dataset?      @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+
+  predictions          Prediction[]
+
+  @@index([companyId])
+  @@index([datasetId])
+  @@index([createdAt])
 }
 
 model Report {

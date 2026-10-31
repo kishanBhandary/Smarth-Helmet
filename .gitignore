@@ -42,6 +42,15 @@ next-env.d.ts
 
 /app/generated/prisma
 
+# Python virtual environment & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+*.log
+
 # AI agent workspace settings and logs
 .agents/
 .windsurf/

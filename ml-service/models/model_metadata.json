@@ -1,0 +1,38 @@
+{
+  "accident_model": {
+    "name": "final_accident_prediction_model.pkl",
+    "algorithm": "RandomForestClassifier",
+    "type": "sklearn.pipeline.Pipeline",
+    "version": "1.0.0",
+    "features": [
+      "Speed",
+      "Acceleration",
+      "Braking",
+      "Sharp_Turn",
+      "Tilt_Angle",
+      "Weather",
+      "Road_Condition"
+    ],
+    "classes": ["No", "Yes"]
+  },
+  "severity_model": {
+    "name": "final_severity_prediction_model.pkl",
+    "algorithm": "XGBClassifier",
+    "preprocessor": "severity_preprocessor.pkl",
+    "label_encoder": "severity_label_encoder.pkl",
+    "version": "1.0.0",
+    "features": [
+      "Speed",
+      "Acceleration",
+      "Braking",
+      "Sharp_Turn",
+      "Tilt_Angle",
+      "Weather",
+      "Road_Condition"
+    ],
+    "classes": ["Critical", "High", "Low", "Medium"]
+  },
+  "metadata_version": "1.0.0",
+  "created_at": "2026-10-30"
+}
+

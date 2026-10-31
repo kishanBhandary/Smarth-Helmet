@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:ml": "./ml-service/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir ml-service --reload",
+    "dev:all": "./ml-service/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir ml-service & next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

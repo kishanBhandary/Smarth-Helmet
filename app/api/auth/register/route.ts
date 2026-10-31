@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
     if (!result.success) {
       return NextResponse.json(
-        { error: "Invalid data provided", details: result.error.errors },
+        { error: "Invalid data provided", details: result.error.issues },
         { status: 400 }
       );
     }
@@ -50,37 +50,35 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create Company and Admin User in a transaction
-    await prisma.$transaction(async (tx) => {
-      const newCompany = await tx.company.create({
-        data: {
-          name: companyName,
-          officialEmail: email,
-          phone,
-        },
-      });
+    // Create Company and Admin User sequentially without interactive transaction (PgBouncer compatibility)
+    const newCompany = await prisma.company.create({
+      data: {
+        name: companyName,
+        officialEmail: email,
+        phone,
+      },
+    });
 
-      await tx.user.create({
-        data: {
-          email,
-          name: "Admin User", // Placeholder or from form if we had it
-          password: hashedPassword,
-          role: "COMPANY_ADMIN",
-          companyId: newCompany.id,
-          permissions: [
-            "VIEW_DASHBOARD",
-            "UPLOAD_DATASET",
-            "VIEW_DATASETS",
-            "VIEW_RIDERS",
-            "VIEW_HELMETS",
-            "VIEW_TRIPS",
-            "VIEW_INCIDENTS",
-            "VIEW_ANALYTICS",
-            "VIEW_REPORTS",
-            "MANAGE_EMPLOYEES",
-          ],
-        },
-      });
+    await prisma.user.create({
+      data: {
+        email,
+        name: "Admin User", // Placeholder or from form if we had it
+        password: hashedPassword,
+        role: "COMPANY_ADMIN",
+        companyId: newCompany.id,
+        permissions: [
+          "VIEW_DASHBOARD",
+          "UPLOAD_DATASET",
+          "VIEW_DATASETS",
+          "VIEW_RIDERS",
+          "VIEW_HELMETS",
+          "VIEW_TRIPS",
+          "VIEW_INCIDENTS",
+          "VIEW_ANALYTICS",
+          "VIEW_REPORTS",
+          "MANAGE_EMPLOYEES",
+        ],
+      },
     });
 
     return NextResponse.json({ success: true }, { status: 201 });

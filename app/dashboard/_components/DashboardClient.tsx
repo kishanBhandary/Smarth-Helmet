@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Users, HardHat, Route, Database, AlertTriangle } from "lucide-react";
+import { Users, HardHat, Route, Database, AlertTriangle, ShieldCheck, Activity } from "lucide-react";
 import KpiCard from "./KpiCard";
 import SafetyChart from "./SafetyChart";
 import RiskDonut from "./RiskDonut";
@@ -13,8 +13,11 @@ export interface DashboardData {
     totalHelmets: number;
     totalTrips: number;
     totalDatasets: number;
+    totalRecords: number;
     totalIncidents: number;
     highSeverity: number;
+    predictedAccidents: number;
+    predictedNoAccidents: number;
   };
   chartData: Array<{
     date: string;
@@ -28,15 +31,31 @@ export interface DashboardData {
     medium: number;
     high: number;
   };
+  severityDistribution?: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+    none: number;
+  };
+  probabilityDistribution?: {
+    veryLow: number;
+    moderate: number;
+    high: number;
+    severe: number;
+  };
   recentIncidents: Array<{
     id: string;
     incidentId: string;
     riderId: string;
+    helmetId?: string;
     tripId: string;
     severity: string;
     location: string;
     timestamp: Date;
     status: string;
+    probability?: number;
+    isPredicted?: boolean;
   }>;
   topLocations: Array<{
     location: string;
@@ -65,10 +84,10 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-            Safety Overview
+            Safety & Intelligence Overview
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            Track and analyze rider safety metrics across your fleet.
+            Track and analyze real-time telemetry and machine learning accident predictions.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -86,11 +105,17 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <KpiCard 
+          title="Uploaded Records" 
+          value={data.stats.totalRecords.toLocaleString()} 
+          icon={Database} 
+          iconColorClass="text-purple-600" 
+          iconBgClass="bg-purple-50" 
+        />
         <KpiCard 
           title="Total Riders" 
           value={data.stats.totalRiders} 
-          trend={12} 
           icon={Users} 
           iconColorClass="text-blue-600" 
           iconBgClass="bg-blue-50" 
@@ -98,7 +123,6 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
         <KpiCard 
           title="Total Helmets" 
           value={data.stats.totalHelmets} 
-          trend={8} 
           icon={HardHat} 
           iconColorClass="text-indigo-600" 
           iconBgClass="bg-indigo-50" 
@@ -106,34 +130,23 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
         <KpiCard 
           title="Total Trips" 
           value={data.stats.totalTrips} 
-          trend={18} 
           icon={Route} 
           iconColorClass="text-emerald-600" 
           iconBgClass="bg-emerald-50" 
         />
         <KpiCard 
-          title="Total Datasets" 
-          value={data.stats.totalDatasets} 
-          trend={25} 
-          icon={Database} 
-          iconColorClass="text-purple-600" 
-          iconBgClass="bg-purple-50" 
-        />
-        <KpiCard 
-          title="Total Incidents" 
-          value={data.stats.totalIncidents} 
-          trend={-8} 
-          icon={AlertTriangle} 
-          iconColorClass="text-amber-600" 
-          iconBgClass="bg-amber-50" 
-        />
-        <KpiCard 
-          title="High Severity" 
-          value={data.stats.highSeverity} 
-          trend={-25} 
+          title="AI Predicted Accidents" 
+          value={data.stats.predictedAccidents} 
           icon={AlertTriangle} 
           iconColorClass="text-rose-600" 
           iconBgClass="bg-rose-50" 
+        />
+        <KpiCard 
+          title="Safe Telemetry" 
+          value={data.stats.predictedNoAccidents} 
+          icon={ShieldCheck} 
+          iconColorClass="text-teal-600" 
+          iconBgClass="bg-teal-50" 
         />
       </div>
 
@@ -144,8 +157,8 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
         <div className="lg:col-span-2 rounded-xl bg-white p-6 border border-slate-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-semibold text-slate-900">Safety Overview</h3>
-              <p className="text-sm text-slate-500">Metric trends over time</p>
+              <h3 className="text-base font-semibold text-slate-900">Safety & Incident Trends</h3>
+              <p className="text-sm text-slate-500">Metric trends over selected timeframe</p>
             </div>
             <select
               value={chartMetric}
@@ -162,68 +175,116 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
         </div>
 
         {/* Risk Distribution */}
-        <div className="rounded-xl bg-white p-6 border border-slate-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)]">
+        <div className="rounded-xl bg-white p-6 border border-slate-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] flex flex-col justify-between">
           <div>
-            <h3 className="text-base font-semibold text-slate-900">Risk Distribution</h3>
-            <p className="text-sm text-slate-500">Incidents by severity level</p>
+            <h3 className="text-base font-semibold text-slate-900">Risk & Severity Breakdown</h3>
+            <p className="text-sm text-slate-500">Predicted and reported severity distribution</p>
           </div>
           <RiskDonut data={data.riskData} />
+          
+          {data.severityDistribution && (
+            <div className="grid grid-cols-4 gap-2 pt-4 border-t border-slate-100 text-center text-xs">
+              <div className="p-1.5 rounded bg-red-50 text-red-700">
+                <span className="block font-semibold">Critical</span>
+                <span>{data.severityDistribution.critical}</span>
+              </div>
+              <div className="p-1.5 rounded bg-orange-50 text-orange-700">
+                <span className="block font-semibold">High</span>
+                <span>{data.severityDistribution.high}</span>
+              </div>
+              <div className="p-1.5 rounded bg-yellow-50 text-yellow-700">
+                <span className="block font-semibold">Medium</span>
+                <span>{data.severityDistribution.medium}</span>
+              </div>
+              <div className="p-1.5 rounded bg-blue-50 text-blue-700">
+                <span className="block font-semibold">Low</span>
+                <span>{data.severityDistribution.low}</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Tables Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Recent Incidents Table */}
+        {/* Recent Incidents & Predictions Table */}
         <div className="lg:col-span-2 rounded-xl bg-white border border-slate-100 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <div>
-              <h3 className="text-base font-semibold text-slate-900">Recent Incidents</h3>
-              <p className="text-sm text-slate-500">Latest safety incidents from your company</p>
+              <h3 className="text-base font-semibold text-slate-900">Recent Incident & AI Prediction Feed</h3>
+              <p className="text-sm text-slate-500">Evaluated sensor telemetry records from your company</p>
             </div>
-            <button className="text-sm font-medium text-blue-600 hover:text-blue-700">View All</button>
+            <button 
+              onClick={() => router.push("/dashboard/incidents")}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              View All
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-600">
               <thead className="bg-slate-50 text-xs uppercase text-slate-500 border-b border-slate-100">
                 <tr>
-                  <th className="px-6 py-3 font-medium">Incident ID</th>
-                  <th className="px-6 py-3 font-medium">Rider / Trip</th>
+                  <th className="px-6 py-3 font-medium">Record ID</th>
+                  <th className="px-6 py-3 font-medium">Rider / Helmet</th>
                   <th className="px-6 py-3 font-medium">Location</th>
                   <th className="px-6 py-3 font-medium">Date & Time</th>
-                  <th className="px-6 py-3 font-medium">Severity</th>
+                  <th className="px-6 py-3 font-medium">AI Probability</th>
+                  <th className="px-6 py-3 font-medium">Predicted Severity</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {data.recentIncidents.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                      No recent incidents recorded.
+                    <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                      No recent incidents or predictions recorded.
                     </td>
                   </tr>
                 ) : (
                   data.recentIncidents.map((incident) => (
-                    <tr key={incident.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer">
-                      <td className="px-6 py-4 font-medium text-slate-900">{incident.incidentId || incident.id.slice(-8).toUpperCase()}</td>
+                    <tr key={incident.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 font-medium text-slate-900 font-mono text-xs">
+                        {incident.incidentId || incident.id.slice(-8).toUpperCase()}
+                      </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="font-medium text-slate-700">{incident.riderId || 'Unknown'}</span>
-                          <span className="text-xs text-slate-400">{incident.tripId || 'N/A'}</span>
+                          <span className="font-medium text-slate-700">{incident.riderId || "Unknown"}</span>
+                          <span className="text-xs text-slate-400 font-mono">{incident.helmetId || incident.tripId || "N/A"}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 truncate max-w-[150px]">{incident.location || 'Unknown'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 truncate max-w-[150px]">{incident.location || "Telemetry point"}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-500">
                         {new Date(incident.timestamp).toLocaleString(undefined, {
-                          month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
                         })}
                       </td>
                       <td className="px-6 py-4">
+                        {incident.probability !== undefined ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-xs font-semibold ${
+                              incident.probability >= 50 ? "text-rose-600" : "text-emerald-600"
+                            }`}>
+                              {incident.probability.toFixed(1)}%
+                            </span>
+                            <span className="text-[10px] text-slate-400">AI</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          incident.severity === 'CRITICAL' || incident.severity === 'HIGH' ? 'bg-red-100 text-red-700' :
-                          incident.severity === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
-                          'bg-green-100 text-green-700'
+                          incident.severity === "CRITICAL" || incident.severity === "Critical" ? "bg-red-100 text-red-700 font-bold" :
+                          incident.severity === "HIGH" || incident.severity === "High" ? "bg-orange-100 text-orange-700" :
+                          incident.severity === "MEDIUM" || incident.severity === "Medium" ? "bg-amber-100 text-amber-700" :
+                          incident.severity === "LOW" || incident.severity === "Low" ? "bg-blue-100 text-blue-700" :
+                          "bg-slate-100 text-slate-600"
                         }`}>
-                          {incident.severity || 'LOW'}
+                          {incident.severity || "None"}
                         </span>
                       </td>
                     </tr>
@@ -241,7 +302,12 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
               <h3 className="text-base font-semibold text-slate-900">Top Risk Locations</h3>
               <p className="text-sm text-slate-500">Highest incident zones</p>
             </div>
-            <button className="text-sm font-medium text-blue-600 hover:text-blue-700">View All</button>
+            <button 
+              onClick={() => router.push("/dashboard/analytics/location")}
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              View Map
+            </button>
           </div>
           <div className="p-6">
             {data.topLocations.length === 0 ? (
@@ -249,7 +315,7 @@ export default function DashboardClient({ data }: { data: DashboardData }) {
             ) : (
               <div className="space-y-4">
                 {data.topLocations.map((loc, index) => {
-                  const maxCount = Math.max(...data.topLocations.map(l => l.count), 1);
+                  const maxCount = Math.max(...data.topLocations.map((l) => l.count), 1);
                   const percentage = (loc.count / maxCount) * 100;
                   return (
                     <div key={index} className="flex flex-col gap-1">

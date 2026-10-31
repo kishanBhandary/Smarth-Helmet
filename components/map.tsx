@@ -16,6 +16,23 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
+// Custom Leaflet icons for accidents vs safe rides
+const AccidentIcon = L.divIcon({
+  className: "custom-leaflet-accident-icon",
+  html: `<div style="background-color: #DC2626; width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid #FFFFFF; box-shadow: 0 0 12px rgba(220,38,38,0.8); display: flex; align-items: center; justify-content: center; font-size: 14px; animation: pulse 1.5s infinite;">⚠️</div>`,
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+  popupAnchor: [0, -15],
+});
+
+const SafeIcon = L.divIcon({
+  className: "custom-leaflet-safe-icon",
+  html: `<div style="background-color: #2563EB; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #FFFFFF; box-shadow: 0 0 6px rgba(37,99,235,0.5);"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10],
+  popupAnchor: [0, -10],
+});
+
 interface MapViewProps {
   center: [number, number];
 }
@@ -30,7 +47,16 @@ function ChangeMapView({ center }: MapViewProps) {
 }
 
 interface MapProps {
-  locations: Array<{ latitude: number; longitude: number; speed?: number; timestamp: string }>;
+  locations: Array<{
+    latitude: number;
+    longitude: number;
+    speed?: number;
+    timestamp: string;
+    locationName?: string;
+    severity?: string;
+    accident?: boolean;
+    riderName?: string;
+  }>;
   ongoing: boolean;
 }
 
