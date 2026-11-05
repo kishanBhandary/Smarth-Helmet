@@ -5,6 +5,7 @@ import { parseSpreadsheetBuffer, validateDatasetRows } from "@/lib/dataset-valid
 import { runPredictionForDataset } from "@/lib/ml/ml.service";
 
 export async function POST(req: Request) {
+  let dataset: any = null;
   try {
     const session = await auth();
     if (!session?.user?.companyId) {
@@ -39,8 +40,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create Dataset record in Supabase
-    const dataset = await prisma.dataset.create({
+    // Create Dataset record in PROCESSING status
+    dataset = await prisma.dataset.create({
       data: {
         fileName: file.name,
         uploadedBy: session.user.name || session.user.email || session.user.id,
@@ -53,16 +54,16 @@ export async function POST(req: Request) {
       },
     });
 
-    // Extract unique riders, helmets, trips for efficient upserts
-    const uniqueHelmets = new Map<string, any>();
+    // Unique maps for entities
     const uniqueRiders = new Map<string, any>();
+    const uniqueHelmets = new Map<string, any>();
     const uniqueTrips = new Map<string, any>();
 
     for (const row of validRows) {
       if (!uniqueHelmets.has(row.Helmet_ID)) {
         uniqueHelmets.set(row.Helmet_ID, {
-          companyId,
           helmetId: row.Helmet_ID,
+          companyId,
           status: "ACTIVE" as const,
         });
       }
@@ -100,13 +101,41 @@ export async function POST(req: Request) {
       }
     }
 
-    // Execute entity creation directly without interactive transaction (compatible with PgBouncer pooler)
-    // Upsert Helmets first
-    for (const h of uniqueHelmets.values()) {
-      await prisma.helmet.upsert({
-        where: { companyId_helmetId: { companyId, helmetId: h.helmetId } },
-        update: {},
-        create: h,
+    // Ensure company fallback entities exist to guarantee relational integrity
+    const defaultHelmet = await prisma.helmet.upsert({
+      where: { companyId_helmetId: { companyId, helmetId: "DEFAULT-HELMET" } },
+      update: {},
+      create: { companyId, helmetId: "DEFAULT-HELMET", status: "ACTIVE" },
+    });
+
+    const defaultRider = await prisma.rider.upsert({
+      where: { companyId_riderId: { companyId, riderId: "DEFAULT-RIDER" } },
+      update: {},
+      create: { companyId, riderId: "DEFAULT-RIDER", name: "Default Fleet Rider", helmetId: defaultHelmet.id },
+    });
+
+    const defaultTrip = await prisma.trip.upsert({
+      where: { companyId_tripId: { companyId, tripId: "DEFAULT-TRIP" } },
+      update: {},
+      create: {
+        companyId,
+        tripId: "DEFAULT-TRIP",
+        startTime: new Date(),
+        riderId: defaultRider.id,
+        helmetId: defaultHelmet.id,
+      },
+    });
+
+    // Batch insert Helmets in high-speed createMany
+    const helmetBatch = Array.from(uniqueHelmets.values());
+    if (helmetBatch.length > 0) {
+      await prisma.helmet.createMany({
+        data: helmetBatch.map((h) => ({
+          companyId,
+          helmetId: h.helmetId,
+          status: "ACTIVE" as const,
+        })),
+        skipDuplicates: true,
       });
     }
 
@@ -114,44 +143,36 @@ export async function POST(req: Request) {
     const dbHelmets = await prisma.helmet.findMany({ where: { companyId } });
     const helmetIdMap = new Map(dbHelmets.map((h) => [h.helmetId, h.id]));
 
-    // Upsert Riders with assigned helmet relation
-    for (const r of uniqueRiders.values()) {
-      const hDbId = helmetIdMap.get(r.helmetExtId);
-      await prisma.rider.upsert({
-        where: { companyId_riderId: { companyId, riderId: r.riderId } },
-        update: { 
-          name: r.name,
-          ...(hDbId ? { helmetId: hDbId } : {})
-        },
-        create: {
-          companyId: r.companyId,
+    // Batch insert Riders
+    const riderBatch = Array.from(uniqueRiders.values());
+    if (riderBatch.length > 0) {
+      await prisma.rider.createMany({
+        data: riderBatch.map((r) => ({
+          companyId,
           riderId: r.riderId,
           name: r.name,
-          ...(hDbId ? { helmetId: hDbId } : {})
-        },
+          helmetId: helmetIdMap.get(r.helmetExtId) || defaultHelmet.id,
+        })),
+        skipDuplicates: true,
       });
     }
 
     const dbRiders = await prisma.rider.findMany({ where: { companyId } });
     const riderIdMap = new Map(dbRiders.map((r) => [r.riderId, r.id]));
 
-    // Upsert Trips
-    for (const t of uniqueTrips.values()) {
-      const hDbId = helmetIdMap.get(t.helmetExtId);
-      const rDbId = riderIdMap.get(t.riderExtId);
-      if (hDbId && rDbId) {
-        await prisma.trip.upsert({
-          where: { companyId_tripId: { companyId, tripId: t.tripId } },
-          update: {},
-          create: {
-            companyId,
-            tripId: t.tripId,
-            startTime: t.startTime,
-            helmetId: hDbId,
-            riderId: rDbId,
-          },
-        });
-      }
+    // Batch insert Trips
+    const tripBatch = Array.from(uniqueTrips.values());
+    if (tripBatch.length > 0) {
+      await prisma.trip.createMany({
+        data: tripBatch.map((t) => ({
+          companyId,
+          tripId: t.tripId,
+          startTime: t.startTime,
+          riderId: riderIdMap.get(t.riderExtId) || defaultRider.id,
+          helmetId: helmetIdMap.get(t.helmetExtId) || defaultHelmet.id,
+        })),
+        skipDuplicates: true,
+      });
     }
 
     const dbTrips = await prisma.trip.findMany({ where: { companyId } });
@@ -171,9 +192,9 @@ export async function POST(req: Request) {
       return {
         companyId,
         datasetId: dataset.id,
-        riderId: riderIdMap.get(r.Rider_ID)!,
-        helmetId: helmetIdMap.get(r.Helmet_ID)!,
-        tripId: tripIdMap.get(r.Trip_ID)!,
+        riderId: riderIdMap.get(r.Rider_ID) || defaultRider.id,
+        helmetId: helmetIdMap.get(r.Helmet_ID) || defaultHelmet.id,
+        tripId: tripIdMap.get(r.Trip_ID) || defaultTrip.id,
         timestamp: r.Timestamp,
         speed: r.Speed,
         acceleration: r.Acceleration,
@@ -252,10 +273,20 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Dataset import error:", error);
+    if (dataset?.id) {
+      try {
+        await prisma.dataset.update({
+          where: { id: dataset.id },
+          data: {
+            status: "FAILED",
+            errorMessage: error?.message || "Failed to import dataset",
+          },
+        });
+      } catch {}
+    }
     return NextResponse.json(
       { error: `Import failed: ${error.message || "Unknown error"}` },
       { status: 500 }
     );
   }
 }
-

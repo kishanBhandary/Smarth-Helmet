@@ -156,8 +156,25 @@ export async function runPredictionForDataset(datasetId: string, companyId: stri
   });
 
   if (records.length === 0) {
-    throw new Error("No sensor records found in dataset.");
+    return {
+      success: false,
+      runId: "",
+      datasetId,
+      totalRecords: 0,
+      predictedAccidents: 0,
+      predictedNoAccidents: 0,
+      modelVersion: "v1.0.0",
+      message: "No sensor records found in dataset. Please upload a valid dataset with records.",
+    };
   }
+
+  // Idempotently clear previous predictions for this dataset to avoid duplicate counts
+  await prisma.prediction.deleteMany({
+    where: { datasetId, companyId },
+  });
+  await prisma.predictionRun.deleteMany({
+    where: { datasetId, companyId },
+  });
 
   // Prepare input records for ML model
   const inputs: SensorRecordInput[] = records.map((r) => ({

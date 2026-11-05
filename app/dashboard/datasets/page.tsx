@@ -16,7 +16,7 @@ export default async function DatasetsPage() {
     orderBy: { createdAt: "desc" },
     include: {
       _count: {
-        select: { predictions: true },
+        select: { predictions: true, records: true },
       },
     },
   });
@@ -135,6 +135,8 @@ export default async function DatasetsPage() {
                     <DatasetRowActions
                       datasetId={dataset.id}
                       predictionsCount={dataset._count.predictions}
+                      recordsCount={dataset._count.records}
+                      status={dataset.status}
                     />
                   </td>
                 </tr>

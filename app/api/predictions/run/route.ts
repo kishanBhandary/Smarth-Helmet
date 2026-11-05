@@ -19,6 +19,13 @@ export async function POST(req: Request) {
 
     const result = await runPredictionForDataset(datasetId, companyId);
 
+    if (!result.success) {
+      return NextResponse.json(
+        { error: (result as any).message || "Dataset contains no sensor records." },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       message: "Predictions successfully executed and saved.",
